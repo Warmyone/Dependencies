@@ -17,7 +17,7 @@ namespace Dependencies
     {
         #region Singleton implementation
         private static BinaryCache SingletonInstance;
-        
+
         /// <summary>
         /// Singleton implemenation for the BinaryCache. This class must be 
         /// visible and unique throughout the whole application in order to be efficient.
@@ -42,7 +42,7 @@ namespace Dependencies
         #endregion Singleton implementation
 
         #region PublicAPI
-        
+
         /// <summary>
         /// Ask the BinaryCache to load a PE from the filesystem. The
         /// whole cache magic is hidden underneath
@@ -58,27 +58,35 @@ namespace Dependencies
             return Instance.GetBinary(PePath);
         }
 
-		public static Tuple<ModuleSearchStrategy, PE> ResolveModule(string ModuleName)
-		{
-			PE RootPe = LoadPe(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "ntdll.dll"));
-			string WorkingDirectory = Path.GetDirectoryName(RootPe.Filepath);
-			List<string> CustomSearchFolders = new List<string>();
-			SxsEntries SxsCache = SxsManifest.GetSxsEntries(RootPe);
+        public static Tuple<ModuleSearchStrategy, PE> ResolveModule(string ModuleName)
+        {
+            PE RootPe = LoadPe(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "ntdll.dll"));
+            string WorkingDirectory = Path.GetDirectoryName(RootPe.Filepath);
+            List<string> CustomSearchFolders = new List<string>();
+            List<ModuleSearchStrategy> IgnoreSearchStrategies = new List<ModuleSearchStrategy>();
+            SxsEntries SxsCache = SxsManifest.GetSxsEntries(RootPe);
 
-			return ResolveModule(RootPe, ModuleName, SxsCache, CustomSearchFolders, WorkingDirectory);
-		}
+            return ResolveModule(RootPe, ModuleName, SxsCache, CustomSearchFolders, IgnoreSearchStrategies, WorkingDirectory);
+        }
 
-		public static Tuple<ModuleSearchStrategy, PE> ResolveModule(PE RootPe, string ModuleName)
-		{
-			string WorkingDirectory = Path.GetDirectoryName(RootPe.Filepath);
-			List<string> CustomSearchFolders = new List<string>();
-			SxsEntries SxsCache = SxsManifest.GetSxsEntries(RootPe);
+        public static Tuple<ModuleSearchStrategy, PE> ResolveModule(PE RootPe, string ModuleName)
+        {
+            string WorkingDirectory = Path.GetDirectoryName(RootPe.Filepath);
+            List<string> CustomSearchFolders = new List<string>();
+            List<ModuleSearchStrategy> IgnoreSearchStrategies = new List<ModuleSearchStrategy>();
+            SxsEntries SxsCache = SxsManifest.GetSxsEntries(RootPe);
 
-			return ResolveModule(RootPe, ModuleName, SxsCache, CustomSearchFolders, WorkingDirectory);
-		}
+            return ResolveModule(RootPe, ModuleName, SxsCache, CustomSearchFolders, IgnoreSearchStrategies, WorkingDirectory);
+        }
+        public static Tuple<ModuleSearchStrategy, PE> ResolveModule(PE RootPe, string ModuleName, List<string> CustomSearchFolders, List<ModuleSearchStrategy> IgnoreSearchStrategies)
+        {
+            string WorkingDirectory = Path.GetDirectoryName(RootPe.Filepath);
+            SxsEntries SxsCache = SxsManifest.GetSxsEntries(RootPe);
 
+            return ResolveModule(RootPe, ModuleName, SxsCache, CustomSearchFolders, IgnoreSearchStrategies, WorkingDirectory);
+        }
 
-		public static Tuple<ModuleSearchStrategy, PE> ResolveModule(PE RootPe, string ModuleName, SxsEntries SxsCache, List<string> CustomSearchFolders, string WorkingDirectory)
+        public static Tuple<ModuleSearchStrategy, PE> ResolveModule(PE RootPe, string ModuleName, SxsEntries SxsCache, List<string> CustomSearchFolders, List<ModuleSearchStrategy> IgnoreSearchStrategies, string WorkingDirectory)
         {
             Tuple<ModuleSearchStrategy, string> ResolvedFilepath;
 
@@ -94,7 +102,7 @@ namespace Dependencies
                 ModuleName = ApiSetName;
             }
 
-            ResolvedFilepath = FindPe.FindPeFromDefault(RootPe, ModuleName, SxsCache, CustomSearchFolders, WorkingDirectory);
+            ResolvedFilepath = FindPe.FindPeFromDefault(RootPe, ModuleName, SxsCache, CustomSearchFolders, IgnoreSearchStrategies, WorkingDirectory);
 
             // ApiSet override the underneath search location if found or not
             ModuleSearchStrategy ModuleLocation = ResolvedFilepath.Item1;
@@ -123,7 +131,7 @@ namespace Dependencies
             // Look for api set target 
             if (!ImportDllName.StartsWith("api-") && !ImportDllName.StartsWith("ext-"))
                 return "";
-           
+
             // Strip the .dll extension and search for matching targets
             var ImportDllWIthoutExtension = Path.GetFileNameWithoutExtension(ImportDllName);
             var Targets = ApiSetmapCache.Lookup(ImportDllWIthoutExtension);
@@ -164,74 +172,74 @@ namespace Dependencies
                         return true;
 
                 }
-                
+
             }
 
             return false;
         }
 
-		public static List<Tuple<PeImport, bool>> LookupImports(PeImportDll ParentImports, List<PeExport> ModuleExports)
-		{
-			List<Tuple<PeImport, bool>> Result = new List<Tuple<PeImport, bool>>();
+        public static List<Tuple<PeImport, bool>> LookupImports(PeImportDll ParentImports, List<PeExport> ModuleExports)
+        {
+            List<Tuple<PeImport, bool>> Result = new List<Tuple<PeImport, bool>>();
 
-			foreach (PeImport Import in ParentImports.ImportList)
-			{
-				bool bFoundImport = false;
+            foreach (PeImport Import in ParentImports.ImportList)
+            {
+                bool bFoundImport = false;
 
-				foreach (var export in ModuleExports)
-				{
-					if (Import.ImportByOrdinal)
-					{
+                foreach (var export in ModuleExports)
+                {
+                    if (Import.ImportByOrdinal)
+                    {
                         // Even if the export has a Name (therefore not a pure export by ordinal) 
                         // we can still possibly import it by its ordinal, although it's not recommended.
-						if ((export.Ordinal == Import.Ordinal) /*&& export.ExportByOrdinal*/)
-						{
-							bFoundImport = true;
-							break;
-						}
+                        if ((export.Ordinal == Import.Ordinal) /*&& export.ExportByOrdinal*/)
+                        {
+                            bFoundImport = true;
+                            break;
+                        }
 
-					}
-					else
-					{
-						if (export.ForwardedName == Import.Name)
-						{
-							bFoundImport = true;
-							break;
-						}
+                    }
+                    else
+                    {
+                        if (export.ForwardedName == Import.Name)
+                        {
+                            bFoundImport = true;
+                            break;
+                        }
 
 
-						if (export.Name == Import.Name)
-						{
-							bFoundImport = true;
-							break;
-						}
+                        if (export.Name == Import.Name)
+                        {
+                            bFoundImport = true;
+                            break;
+                        }
 
-					}
-				}
+                    }
+                }
 
-				Result.Add(new Tuple<PeImport, bool>(Import, bFoundImport));
-			}
+                Result.Add(new Tuple<PeImport, bool>(Import, bFoundImport));
+            }
 
-			return Result;
-		}
+            return Result;
+        }
 
-		public static List<Tuple<PeImport, bool>> LookupImports(PeImportDll ModuleImport, string ModuleFilePath)
+        public static List<Tuple<PeImport, bool>> LookupImports(PeImportDll ModuleImport, string ModuleFilePath)
         {
-			PE Module = null;
-			List<Tuple<PeImport, bool>> Result = new List<Tuple<PeImport, bool>>();
+            PE Module = null;
+            List<Tuple<PeImport, bool>> Result = new List<Tuple<PeImport, bool>>();
 
             // if there is a module name, try to resolve apiset for attempting to load it
-			if (ModuleFilePath != null)
-            { 
+            if (ModuleFilePath != null)
+            {
                 string ApiSetName = LookupApiSetLibrary(ModuleFilePath);
-			    if (!string.IsNullOrEmpty(ApiSetName))
-			    {
-				    Module = ResolveModule(ApiSetName).Item2;
+                if (!string.IsNullOrEmpty(ApiSetName))
+                {
+                    Module = ResolveModule(ApiSetName).Item2;
                 }
-			    else
-			    {
-				    Module = LoadPe(ModuleFilePath);
-			    }
+                else
+                {
+                    Module = LoadPe(ModuleFilePath);
+                }
             }
 
             // If the module has not been found, mark all imports as not found
@@ -245,9 +253,9 @@ namespace Dependencies
                 return Result;
             }
 
-			return LookupImports(ModuleImport, Module.GetExports());
+            return LookupImports(ModuleImport, Module.GetExports());
 
-		}
+        }
 
         #endregion PublicAPI
 
@@ -258,14 +266,14 @@ namespace Dependencies
 
         public BinaryCache(string ApplicationAppDataPath, int _MaxBinaryCount)
         {
-            
+
             BinaryDatabase = new Dictionary<string, PE>();
             FilepathDatabase = new Dictionary<string, PE>();
             BinaryDatabaseLock = new Object();
             LruCache = new List<string>();
 
             MaxBinaryCount = _MaxBinaryCount;
-	        string platform = (IntPtr.Size == 8) ? "x64" : "x86";
+            string platform = (IntPtr.Size == 8) ? "x64" : "x86";
 
             BinaryCacheFolderPath = Path.Combine(ApplicationAppDataPath, "BinaryCache", platform);
             Directory.CreateDirectory(BinaryCacheFolderPath);
@@ -273,7 +281,7 @@ namespace Dependencies
 
         #endregion constructors
 
-        
+
         public void Load()
         {
             // "warm up" the cache
@@ -309,13 +317,13 @@ namespace Dependencies
                 {
                     GetBinaryAsync(Path.Combine(SysWow64Folder, KnownDll));
                 }
-                
+
             }
 
         }
 
         public void Unload()
-        { 
+        {
             // cut off the LRU cache
             LruCache = LruCache.GetRange(0, Math.Min(LruCache.Count, MaxBinaryCount));
 
@@ -341,7 +349,7 @@ namespace Dependencies
                         // so only the last one alive can clear the cache.
                         Debug.WriteLine("[BinaryCache] Could not unload file {0:s} : {1:s} ", CachedBinary, uae);
                     }
-                    
+
                 }
             }
 
@@ -363,7 +371,7 @@ namespace Dependencies
             {
                 bw.RunWorkerCompleted += Callback;
             }
-            
+
 
             bw.RunWorkerAsync();
         }
@@ -395,18 +403,18 @@ namespace Dependencies
             lock (BinaryDatabaseLock)
             {
                 bool hit = BinaryDatabase.ContainsKey(PeHash);
-                
+
                 // Cache "miss"
                 if (!hit)
                 {
-                
+
                     string DestFilePath = Path.Combine(BinaryCacheFolderPath, PeHash);
                     if (!File.Exists(DestFilePath) && (DestFilePath != PePath))
                     {
                         Debug.WriteLine(String.Format("FileCopy from {0:s} to {1:s}", PePath, DestFilePath), "BinaryCache");
                         NativeFile.Copy(PePath, DestFilePath);
                     }
-                
+
                     PE NewShadowBinary = new PE(DestFilePath);
                     NewShadowBinary.Load();
 
@@ -449,7 +457,7 @@ namespace Dependencies
         private List<string> LruCache;
         private Dictionary<string, PE> BinaryDatabase;
         private Dictionary<string, PE> FilepathDatabase;
-        private Object BinaryDatabaseLock; 
+        private Object BinaryDatabaseLock;
 
         private string BinaryCacheFolderPath;
         private int MaxBinaryCount;
