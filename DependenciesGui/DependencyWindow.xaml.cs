@@ -491,6 +491,7 @@ namespace Dependencies
 					DllImport.Name,
 					this.SxsEntriesCache,
 					this.CustomSearchFolders,
+                    new List<ModuleSearchStrategy>(),
 					this.WorkingDirectory
 				);
 
@@ -593,7 +594,8 @@ namespace Dependencies
 								AppInitDll, 
 								this.SxsEntriesCache,
 								this.CustomSearchFolders,
-								this.WorkingDirectory
+                                new List<ModuleSearchStrategy>(),
+                                this.WorkingDirectory
 							);
                             if (ResolvedAppInitModule.Item1 != ModuleSearchStrategy.NOT_FOUND)
                             {
@@ -671,7 +673,8 @@ namespace Dependencies
 									AssemblyModule.FileName, 
 									this.SxsEntriesCache,
 									this.CustomSearchFolders,
-									this.WorkingDirectory
+                                    new List<ModuleSearchStrategy>(),
+                                    this.WorkingDirectory
 								);
                                 if (ResolvedAppInitModule.Item1 != ModuleSearchStrategy.NOT_FOUND)
                                 {
@@ -723,7 +726,8 @@ namespace Dependencies
 								UnmanagedModule.Name, 
 								this.SxsEntriesCache,
 								this.CustomSearchFolders,
-								this.WorkingDirectory
+                                new List<ModuleSearchStrategy>(),
+                                this.WorkingDirectory
 							);
                             if (ResolvedAppInitModule.Item1 != ModuleSearchStrategy.NOT_FOUND)
                             {
@@ -1021,7 +1025,8 @@ namespace Dependencies
 				ModuleName, 
 				this.SxsEntriesCache,
 				this.CustomSearchFolders,
-				this.WorkingDirectory
+                new List<ModuleSearchStrategy>(),
+                this.WorkingDirectory
 			);
             string ModuleFilepath = (ResolvedModule.Item2 != null) ? ResolvedModule.Item2.Filepath : null;
 
